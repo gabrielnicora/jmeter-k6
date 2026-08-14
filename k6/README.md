@@ -107,3 +107,11 @@ usuarios/rampUp/duración. Los resultados quedan en
 comentario en `run-jmeter.sh`), un % de error o una SLA incumplida en Estrés
 es información esperada, no debe hacer fallar el job automáticamente — los
 `checks` quedan sólo para reporte/métricas, no cambian el código de salida.
+
+## Ver los resultados en Grafana
+
+Para visualizar una corrida en vivo (VUs, throughput, latencia por request,
+% de checks OK) con Grafana en lugar de leer la salida de consola, ver
+[`observability/README.md`](../observability/README.md) — levanta un stack
+local de InfluxDB + Grafana con `docker compose up` y un dashboard ya
+armado.

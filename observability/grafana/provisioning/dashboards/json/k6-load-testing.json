@@ -1,0 +1,227 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0 },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+          "query": "SELECT mean(\"value\") FROM \"vus\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "refId": "A"
+        }
+      ],
+      "title": "Usuarios virtuales (VUs)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0 },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "id": 2,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+          "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE $timeFilter GROUP BY time($__interval) fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "refId": "A"
+        }
+      ],
+      "title": "Requests por intervalo",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.01 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 4, "x": 16, "y": 0 },
+      "id": 3,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+          "query": "SELECT mean(\"value\") * 100 FROM \"http_req_failed\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "refId": "A"
+        }
+      ],
+      "title": "% Error (HTTP)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 99.9 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 4, "x": 20, "y": 0 },
+      "id": 4,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+          "query": "SELECT mean(\"value\") * 100 FROM \"checks\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "refId": "A"
+        }
+      ],
+      "title": "% Checks OK (HTTP 200 / COR000I / SLA)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "min": 0 },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 8 },
+      "id": 5,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+          "query": "SELECT mean(\"value\") FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "$tag_name (avg)",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+          "query": "SELECT percentile(\"value\", 95) FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "$tag_name (p95)",
+          "refId": "B"
+        }
+      ],
+      "title": "Duración de requests por sampler (avg / p95) — equivalente al Aggregate Report de JMeter",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+      "fieldConfig": {
+        "defaults": { "unit": "ms" },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 17 },
+      "id": 6,
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "p95_ms", "desc": true }]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+          "query": "SELECT mean(\"value\") AS \"avg_ms\", percentile(\"value\", 90) AS \"p90_ms\", percentile(\"value\", 95) AS \"p95_ms\", max(\"value\") AS \"max_ms\" FROM \"http_req_duration\" WHERE $timeFilter GROUP BY \"name\"",
+          "rawQuery": true,
+          "resultFormat": "table",
+          "refId": "A"
+        }
+      ],
+      "title": "Latencia por sampler (tabla)",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+      "fieldConfig": {
+        "defaults": { "unit": "percent" },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 17 },
+      "id": 7,
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "pass_pct", "desc": false }]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "k6-influxdb" },
+          "query": "SELECT mean(\"value\") * 100 AS \"pass_pct\", count(\"value\") AS \"total\" FROM \"checks\" WHERE $timeFilter GROUP BY \"check\"",
+          "rawQuery": true,
+          "resultFormat": "table",
+          "refId": "A"
+        }
+      ],
+      "title": "Checks (HTTP 200 / COR000I / SLA) por assertion — equivalente a las Response/Duration Assertions de JMeter",
+      "type": "table"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["k6", "petersen", "jmeter-migration"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "k6 Load Testing Results — Petersen (Empresas / CDP)",
+  "uid": "k6-petersen-results",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,9 +1,12 @@
 # JMeter local cache
 .jmeter-cache/
 
-# k6 local cache
+# k6 local cache / binario portable descargado a mano
 .k6-cache/
 k6.env
+k6.exe
+k6-portable/
+k6.zip
 
 # Resultados locales
 results/

@@ -1,0 +1,44 @@
+# Stack local para visualizar corridas de k6 en Grafana: InfluxDB (donde k6
+# escribe las métricas en vivo con --out influxdb=...) + Grafana (con el
+# datasource y el dashboard "k6 Load Testing Results" ya provisionados).
+#
+# Uso: ver observability/README.md
+services:
+  influxdb:
+    image: influxdb:1.8
+    container_name: k6-influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=k6
+      - INFLUXDB_HTTP_FLUX_ENABLED=false
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    networks:
+      - k6-observability
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: k6-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - influxdb
+    networks:
+      - k6-observability
+
+networks:
+  k6-observability:
+    name: k6-observability
+
+volumes:
+  influxdb-data:
+  grafana-data:
