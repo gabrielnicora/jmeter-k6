@@ -19,12 +19,23 @@ docker compose up -d
 
 Esto levanta:
 - **InfluxDB** en `localhost:8086` (base de datos `k6`)
-- **Grafana** en `localhost:3000` (acceso anónimo habilitado como Viewer, no
+- **Grafana** en `localhost:3001` (acceso anónimo habilitado como Viewer, no
   hace falta login) con el dashboard **"k6 Load Testing Results — Petersen
   (Empresas / CDP)"** ya cargado bajo la carpeta **k6**
 
-Abrí `http://localhost:3000` y anda directo al dashboard (no hace falta
+Abrí `http://localhost:3001` y anda directo al dashboard (no hace falta
 configurar nada).
+
+> Se usa el puerto **3001** (no 3000) porque 3000 es el default de Grafana y
+> choca fácil con otras cosas corriendo en tu máquina (otro Grafana, un dev
+> server de Node, etc.). Si 3001 u 8086 también están ocupados en tu equipo,
+> los podés pisar sin tocar el archivo:
+> ```powershell
+> $env:GRAFANA_PORT="3002"
+> $env:INFLUXDB_PORT="8087"
+> docker compose up -d
+> ```
+> (y ajustá el `http://localhost:PUERTO` en los pasos siguientes acorde)
 
 ## 2. Correr k6 apuntando a InfluxDB
 
@@ -67,7 +78,7 @@ docker run --rm `
 ```
 
 Mientras la corrida está en curso, el dashboard se refresca solo cada 5s
-(mirá `http://localhost:3000` en paralelo).
+(mirá `http://localhost:3001` en paralelo).
 
 ## 3. Qué muestra el dashboard
 
