@@ -1,0 +1,17 @@
+# JMeter local cache
+.jmeter-cache/
+
+# Resultados locales
+results/
+
+# Logs de JMeter
+jmeter.log
+*.jtl
+
+# CSV de usuarios (contiene credenciales)
+usuarios-empresas.csv
+usuarios-cdp.csv
+*.csv
+
+# Archivos temporales
+*.tmp

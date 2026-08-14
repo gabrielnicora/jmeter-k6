@@ -1,0 +1,248 @@
+variables:
+  JMETER_VERSION: "5.6.3"
+  PROTOCOL: "https"
+  TARGET_PORT: "443"
+  TARGET_APP:
+    value: "all"
+    description: "Qué app ejecutar: obe, cdp o all"
+  USERS:
+    value: ""
+    description: "Cantidad de usuarios virtuales (sobreescribe el default del job)"
+  RAMPUP:
+    value: ""
+    description: "Segundos de ramp-up (default: 60 para carga/estres, 120 para soak)"
+  DURATION:
+    value: ""
+    description: "Duración total en segundos (default: 600 carga, 300 estres, 14400 soak)"
+  # TARGET_HOST_OBE / TARGET_HOST_CDP: definir en Settings > CI/CD > Variables
+  # TARGET_HOST_OBE_IP / TARGET_HOST_CDP_IP: IP(s) internas para /etc/hosts
+  # (el runner no resuelve DNS de QA). Varias IPs: separar por coma, usa la 1ra.
+
+# El runner que ejecuta estos jobs vive en el CLUSTER SEPARADO (distinto al
+# que se estresa) — se logra registrando un GitLab Runner (Kubernetes
+# executor) en ese cluster. Todos los jobs de este pipeline corren ahí, no en
+# el cluster objetivo.
+default:
+  image: eclipse-temurin:17-jre-jammy
+
+stages:
+  - validate
+  - smoke
+  - carga-normal
+  - estres
+  - soak
+
+# ---- Cache de JMeter entre pipelines: evita re-descargar en cada corrida ----
+.jmeter_cache: &jmeter_cache
+  key: "jmeter-${JMETER_VERSION}"
+  paths:
+    - .jmeter-cache/
+
+.jmeter_base:
+  before_script:
+    - |
+      echo "Configurando DNS para HBI API Entre Rios..."
+      echo "10.134.68.180 apii.qa.bancoune.com" >> /etc/hosts
+      echo "10.134.68.180 apie.qa.bancoune.com" >> /etc/hosts
+      echo "10.134.68.180 officebanking.qa.bancoune.com" >> /etc/hosts
+      echo "10.134.68.180 onlinebanking.qa.bancoune.com" >> /etc/hosts
+      if getent hosts apii.qa.bancoune.com > /dev/null 2>&1; then
+        echo "OK: apii.qa.bancoune.com resuelve correctamente"
+      else
+        echo "WARNING: no se pudo resolver apii.qa.bancoune.com"
+      fi
+    - apt-get update -qq && apt-get install -y -qq curl unzip bc jq > /dev/null
+    - chmod +x scripts/*.sh
+    - ./scripts/install-jmeter.sh
+
+  cache:
+    <<: *jmeter_cache
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - results/**/reporte-html/
+      - results/**/*.jtl
+      - results/**/*.log
+
+
+
+validate-jmx:
+  stage: validate
+  image: python:3-slim
+  script:
+    - |
+      for f in jmx/*.jmx; do
+        echo "Validando XML de $f"
+        python3 -c "import xml.etree.ElementTree as ET; ET.parse('$f')"
+      done
+
+# ============================================================================
+# SMOKE — corre siempre primero, sin aprobación manual (bajo riesgo: 1 user,
+# 1 minuto). Si falla, no tiene sentido seguir con las fases siguientes.
+# ============================================================================
+smoke-obe:
+  extends: .jmeter_base
+  stage: smoke
+  rules:
+    - if: '$TARGET_APP == "obe" || $TARGET_APP == "all"'
+  variables:
+    APP: "obe"
+    TEST_TYPE: "smoke"
+    USERS_CSV_PATH: "$OBE_USERS_CSV"
+    TARGET_HOST: "${TARGET_HOST_OBE}"
+  script:
+    - ./scripts/run-jmeter.sh
+  environment:
+    name: stress-test/obe/smoke
+
+smoke-cdp:
+  extends: .jmeter_base
+  stage: smoke
+  rules:
+    - if: '$TARGET_APP == "cdp" || $TARGET_APP == "all"'
+  variables:
+    APP: "cdp"
+    TEST_TYPE: "smoke"
+    USERS_CSV_PATH: "$CDP_USERS_CSV"
+    TARGET_HOST: "${TARGET_HOST_CDP}"
+  script:
+    - ./scripts/run-jmeter.sh
+
+# ============================================================================
+# CARGA NORMAL — requiere aprobación manual (gate de autorización explícita,
+# exigido por la especificación funcional antes de correr contra un ambiente
+# real). Se implementa con un "environment" protegido: solo quienes tienen
+# permiso de deploy sobre ese environment pueden darle play al job.
+# ============================================================================
+carga-normal-obe:
+  extends: .jmeter_base
+  stage: carga-normal
+  needs: ["smoke-obe"]
+  rules:
+    - if: '$TARGET_APP == "obe" || $TARGET_APP == "all"'
+      when: manual
+  variables:
+    APP: "obe"
+    TEST_TYPE: "carga-normal"
+    USERS: "${USERS:-30}"
+    RAMPUP: "${RAMPUP:-60}"
+    DURATION: "${DURATION:-600}"
+    USERS_CSV_PATH: "$OBE_USERS_CSV"
+    TARGET_HOST: "${TARGET_HOST_OBE}"
+  script:
+    - ./scripts/run-jmeter.sh
+  environment:
+    name: stress-test/obe/carga-normal   # environment protegido: ver README
+
+carga-normal-cdp:
+  extends: .jmeter_base
+  stage: carga-normal
+  needs: ["smoke-cdp"]
+  rules:
+    - if: '$TARGET_APP == "cdp" || $TARGET_APP == "all"'
+      when: manual
+  variables:
+    APP: "cdp"
+    TEST_TYPE: "carga-normal"
+    USERS: "${USERS:-30}"
+    RAMPUP: "${RAMPUP:-60}"
+    DURATION: "${DURATION:-600}"
+    USERS_CSV_PATH: "$CDP_USERS_CSV"
+    TARGET_HOST: "${TARGET_HOST_CDP}"
+  script:
+    - ./scripts/run-jmeter.sh
+  environment:
+    name: stress-test/cdp/carga-normal
+
+# ============================================================================
+# ESTRÉS — solo contra arquitectura/infra productiva o equivalente (según
+# especificación funcional). Manual + environment protegido. USERS se pasa
+# por variable al disparar el job manualmente, para poder subir progresivo
+# (50 -> 100 -> 200) sin tocar el pipeline.
+# ============================================================================
+estres-obe:
+  extends: .jmeter_base
+  stage: estres
+  needs: ["carga-normal-obe"]
+  rules:
+    - if: '$TARGET_APP == "obe" || $TARGET_APP == "all"'
+      when: manual
+  variables:
+    APP: "obe"
+    TEST_TYPE: "estres"
+    USERS: "${USERS:-150}"
+    RAMPUP: "${RAMPUP:-60}"
+    DURATION: "${DURATION:-300}"
+    USERS_CSV_PATH: "$OBE_USERS_CSV"
+    TARGET_HOST: "${TARGET_HOST_OBE}"
+  script:
+    - ./scripts/run-jmeter.sh
+  environment:
+    name: stress-test/obe/estres
+
+estres-cdp:
+  extends: .jmeter_base
+  stage: estres
+  needs: ["carga-normal-cdp"]
+  rules:
+    - if: '$TARGET_APP == "cdp" || $TARGET_APP == "all"'
+      when: manual
+  variables:
+    APP: "cdp"
+    TEST_TYPE: "estres"
+    USERS: "${USERS:-150}"
+    RAMPUP: "${RAMPUP:-60}"
+    DURATION: "${DURATION:-300}"
+    USERS_CSV_PATH: "$CDP_USERS_CSV"
+    TARGET_HOST: "${TARGET_HOST_CDP}"
+  script:
+    - ./scripts/run-jmeter.sh
+  environment:
+    name: stress-test/cdp/estres
+
+# ============================================================================
+# SOAK — 4hs por defecto. Manual + environment protegido. timeout extendido
+# porque el default del runner suele ser 1h.
+# ============================================================================
+soak-obe:
+  extends: .jmeter_base
+  stage: soak
+  needs: ["estres-obe"]
+  rules:
+    - if: '$TARGET_APP == "obe" || $TARGET_APP == "all"'
+      when: manual
+  timeout: 6h
+  variables:
+    APP: "obe"
+    TEST_TYPE: "soak"
+    USERS: "${USERS:-30}"
+    RAMPUP: "${RAMPUP:-120}"
+    DURATION: "${DURATION:-14400}"
+    USERS_CSV_PATH: "$OBE_USERS_CSV"
+    TARGET_HOST: "${TARGET_HOST_OBE}"
+  script:
+    - ./scripts/run-jmeter.sh
+  environment:
+    name: stress-test/obe/soak
+
+soak-cdp:
+  extends: .jmeter_base
+  stage: soak
+  needs: ["estres-cdp"]
+  rules:
+    - if: '$TARGET_APP == "cdp" || $TARGET_APP == "all"'
+      when: manual
+  timeout: 6h
+  variables:
+    APP: "cdp"
+    TEST_TYPE: "soak"
+    USERS: "${USERS:-30}"
+    RAMPUP: "${RAMPUP:-120}"
+    DURATION: "${DURATION:-14400}"
+    USERS_CSV_PATH: "$CDP_USERS_CSV"
+    TARGET_HOST: "${TARGET_HOST_CDP}"
+  script:
+    - ./scripts/run-jmeter.sh
+  environment:
+    name: stress-test/cdp/soak
