@@ -1,5 +1,11 @@
 # JMeter Stress Testing — GitLab CI nativo (Proyecto UNO)
 
+> **Migración a k6:** los dos planes `.jmx` de este repo tienen ahora un
+> equivalente 1:1 en k6 bajo [`k6/`](k6/README.md) (mismos datos, mismos
+> endpoints, mismas condiciones y SLA). Los `.jmx` siguen siendo la fuente de
+> verdad del pipeline actual; ver `k6/README.md` para el detalle de la
+> migración y cómo correrla.
+
 Ejecuta las pruebas de estrés de OBE (Empresas) y CDP (Individuos) **dentro
 del propio worker de GitLab**, sin desplegar pods ni Jobs de Kubernetes. El
 worker corre en un runner registrado sobre un **cluster EKS separado** del

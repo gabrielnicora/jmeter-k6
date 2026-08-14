@@ -1,6 +1,10 @@
 # JMeter local cache
 .jmeter-cache/
 
+# k6 local cache
+.k6-cache/
+k6.env
+
 # Resultados locales
 results/
 
