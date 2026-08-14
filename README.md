@@ -4,7 +4,9 @@
 > equivalente 1:1 en k6 bajo [`k6/`](k6/README.md) (mismos datos, mismos
 > endpoints, mismas condiciones y SLA). Los `.jmx` siguen siendo la fuente de
 > verdad del pipeline actual; ver `k6/README.md` para el detalle de la
-> migración y cómo correrla.
+> migración y cómo correrla, o directamente
+> [`docs/k6-local-windows.md`](docs/k6-local-windows.md) si vas a correrlo
+> desde una PC Windows sin permisos de admin.
 
 Ejecuta las pruebas de estrés de OBE (Empresas) y CDP (Individuos) **dentro
 del propio worker de GitLab**, sin desplegar pods ni Jobs de Kubernetes. El

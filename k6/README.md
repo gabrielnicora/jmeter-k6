@@ -14,6 +14,10 @@ Los `.jmx` originales **no se tocaron** — siguen siendo la fuente de verdad
 del pipeline actual. Este directorio es la migración equivalente en k6, para
 correr en paralelo hasta validar que el comportamiento es idéntico.
 
+> **¿Vas a correrlo desde Windows sin admin?** Ver la guía paso a paso
+> [`docs/k6-local-windows.md`](../docs/k6-local-windows.md) (instalar el
+> portable, setear variables, correr, ver el resultado en Grafana).
+
 ## Qué se preservó exactamente
 
 | Elemento JMeter | Equivalente en k6 |
